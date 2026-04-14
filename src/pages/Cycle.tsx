@@ -100,6 +100,16 @@ const Cycle: React.FC = () => {
         }
     };
 
+    const getFallbackInsight = (phase: string) => {
+        switch(phase) {
+            case 'Menstruation': return "Reposez-vous : Privilégiez des étirements doux ou de la marche. Hydratez-vous avec des infusions chaudes (camomille, gingembre) et mangez des aliments riches en fer.";
+            case 'Phase Folliculaire': return "Regain d'énergie ! C'est le moment idéal pour des entraînements plus intenses. Optez pour des repas frais et protéinés.";
+            case 'Ovulation': return "Pic hormonal ! Votre énergie est à son maximum. Privilégiez les légumes verts, noix et graines pour soutenir votre système.";
+            case 'Phase Lutéale': return "Ralentissez un peu : Yoga ou Pilates sont parfaits. Mangez des glucides complexes (patate douce, flocons d'avoine) pour stabiliser votre humeur.";
+            default: return "Écoutez votre corps et adaptez vos activités selon votre niveau d'énergie aujourd'hui.";
+        }
+    };
+
     const fetchAiInsight = async (phaseName: string, day: number, len: number, pDur: number, symptoms: string[], prof: any) => {
         setLoadingAi(true);
         try {
@@ -116,12 +126,14 @@ const Cycle: React.FC = () => {
                 })
             });
             const data = await res.json();
-            if (data.insight) {
+            if (data.insight && data.insight.trim().length > 0) {
                 setAiInsight(data.insight);
+            } else {
+                setAiInsight(getFallbackInsight(phaseName));
             }
         } catch (err) {
             console.error("AI Insight Error:", err);
-            setAiInsight("Aria analyse actuellement votre profil hormonal, veuillez patienter...");
+            setAiInsight(getFallbackInsight(phaseName));
         } finally {
             setLoadingAi(false);
         }
