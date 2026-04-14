@@ -1,19 +1,127 @@
 /**
  * Cycle.tsx — Professional V3
- * Menstrual Cycle & Hormone Tracker integrated with AI
+ * Menstrual Cycle & Hormone Tracker integrated with AI & Database
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const Cycle: React.FC = () => {
     const navigate = useNavigate();
 
-    // Mock data for the cycle tracker
-    // Later this will come from userProfile / database
-    const [cycleDay] = useState(21); 
-    const cycleLength = 28;
-    
-    // Determine phase based on standard 28-day cycle
+    const [cycleDay, setCycleDay] = useState(1);
+    const [cycleLength, setCycleLength] = useState(28);
+    const [loading, setLoading] = useState(true);
+    const [todaySymptoms, setTodaySymptoms] = useState<string[]>([]);
+    const [userId, setUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            setUserId(user.id);
+
+            // Fetch profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('last_period_date, cycle_length')
+                .eq('id', user.id)
+                .single();
+
+            if (profile) {
+                if (profile.cycle_length) {
+                    setCycleLength(profile.cycle_length);
+                }
+                if (profile.last_period_date) {
+                    const today = new Date();
+                    const lastPeriod = new Date(profile.last_period_date);
+                    // Reset time to midnight for accurate day diff
+                    today.setHours(0, 0, 0, 0);
+                    lastPeriod.setHours(0, 0, 0, 0);
+                    
+                    const diffTime = today.getTime() - lastPeriod.getTime();
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    // Modulo logic: cycle wraps around according to cycle_length
+                    // But if it's longer than cycle length and they haven't recorded a new period,
+                    // we show true day number (e.g. Day 30) rather than rolling over automatically.
+                    setCycleDay(diffDays + 1);
+                }
+            }
+
+            // Fetch today's symptoms
+            const todayStr = new Date().toISOString().split('T')[0];
+            const { data: symptomsData } = await supabase
+                .from('cycle_symptoms')
+                .select('symptom')
+                .eq('user_id', user.id)
+                .eq('date', todayStr);
+
+            if (symptomsData) {
+                setTodaySymptoms(symptomsData.map(s => s.symptom));
+            }
+
+        } catch (error) {
+            console.error("Error loading cycle data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const markPeriodStart = async () => {
+        if (!userId) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        try {
+            // Update profile
+            await supabase
+                .from('profiles')
+                .update({ last_period_date: todayStr })
+                .eq('id', userId);
+            
+            setCycleDay(1);
+            alert("Date de début des règles enregistrée !");
+        } catch (error) {
+            console.error("Error updating period start:", error);
+            alert("Erreur lors de l'enregistrement");
+        }
+    };
+
+    const logSymptom = async (symptom: string) => {
+        if (!userId) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        const hasSymptom = todaySymptoms.includes(symptom);
+        
+        try {
+            // Optimistic UI update
+            if (hasSymptom) {
+                setTodaySymptoms(prev => prev.filter(s => s !== symptom));
+                await supabase
+                    .from('cycle_symptoms')
+                    .delete()
+                    .eq('user_id', userId)
+                    .eq('date', todayStr)
+                    .eq('symptom', symptom);
+            } else {
+                setTodaySymptoms(prev => [...prev, symptom]);
+                await supabase
+                    .from('cycle_symptoms')
+                    .insert({ user_id: userId, date: todayStr, symptom });
+            }
+        } catch (error) {
+            console.error("Error logging symptom:", error);
+            // Revert on error
+            loadData();
+        }
+    };
+
+    // Determine phase based on standard 28-day logic (adjusted relatively if possible, but standard is fine for mvp)
     let phase = '';
     let phaseColor = '';
     let phaseIcon = '';
@@ -34,26 +142,46 @@ const Cycle: React.FC = () => {
         phaseColor = 'text-pink-500';
         phaseIcon = 'flare';
         aiTip = "Pic d'énergie et de métabolisme ! Vous brûlez plus facilement les graisses aujourd'hui. Dépensez-vous au maximum !";
-    } else {
+    } else if (cycleDay > 15 && cycleDay <= cycleLength) {
         phase = 'Phase Lutéale';
         phaseColor = 'text-purple-500';
         phaseIcon = 'nights_stay';
         aiTip = "La progestérone augmente : la rétention d'eau et les fringales sont normales. Buvez beaucoup d'eau et mangez des glucides complexes et du magnésium (chocolat noir !).";
+    } else {
+        phase = 'Retard / Nouveau Cycle en attente';
+        phaseColor = 'text-gray-500';
+        phaseIcon = 'schedule';
+        aiTip = "Votre cycle semble plus long que prévu. Enregistrez vos prochaines règles pour recalibrer l'IA Aria.";
     }
 
-    const nextPeriod = cycleLength - cycleDay + 1;
+    const nextPeriod = cycleLength - cycleDay + 1 > 0 ? cycleLength - cycleDay + 1 : 0;
+
+    const SYMPTOMS = [
+        { icon: 'sentiment_satisfied', label: 'Bien', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', active: 'bg-emerald-500 text-white border-emerald-600' },
+        { icon: 'sentiment_dissatisfied', label: 'Triste', color: 'bg-blue-50 text-blue-600 border-blue-100', active: 'bg-blue-500 text-white border-blue-600' },
+        { icon: 'healing', label: 'Douleur', color: 'bg-orange-50 text-orange-600 border-orange-100', active: 'bg-orange-500 text-white border-orange-600' },
+        { icon: 'fastfood', label: 'Fringale', color: 'bg-purple-50 text-purple-600 border-purple-100', active: 'bg-purple-500 text-white border-purple-600' },
+    ];
+
+    if (loading) {
+        return (
+            <div className="min-h-full pb-36 lg:pb-12 bg-gray-50 flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-full pb-36 lg:pb-12 bg-gray-50 select-none">
+        <div className="min-h-full pb-36 lg:pb-12 bg-gray-50 select-none overflow-x-hidden">
             {/* Header */}
-            <div className="px-4 sm:px-6 lg:px-8 pt-6 flex items-center justify-between relative z-10">
+            <div className="px-4 sm:px-6 lg:px-8 pt-6 flex items-center justify-between relative z-10 w-full">
                 <button onClick={() => navigate(-1)}
                     className="w-10 h-10 bg-white border border-gray-100 flex items-center justify-center rounded-xl shadow-sm hover:bg-gray-50 transition">
                     <span className="material-symbols-outlined text-gray-600 text-xl">arrow_back</span>
                 </button>
-                <div className="text-center">
+                <div className="text-center w-full max-w-[200px]">
                     <h1 className="text-lg font-bold text-gray-900">Aria<span className="text-rose-500">Cycle</span></h1>
-                    <p className="text-xs text-rose-500 font-semibold uppercase tracking-widest">Suivi Hormonal</p>
+                    <p className="text-xs text-rose-500 font-semibold uppercase tracking-widest truncate">Suivi Hormonal</p>
                 </div>
                 <div className="w-10"></div>
             </div>
@@ -61,13 +189,13 @@ const Cycle: React.FC = () => {
             <div className="px-4 sm:px-6 lg:px-8 mt-6 space-y-6 max-w-2xl mx-auto flex flex-col items-center">
                 
                 {/* Immersive Cycle Ring */}
-                <div className="relative w-64 h-64 flex items-center justify-center">
+                <div className="relative w-64 h-64 flex items-center justify-center flex-shrink-0">
                     <div className="absolute inset-0 bg-rose-50 rounded-full blur-3xl opacity-50"></div>
-                    <svg className="w-full h-full transform -rotate-90 pointer-events-none relative z-10">
+                    <svg className="w-full h-full transform -rotate-90 pointer-events-none relative z-10 overflow-visible">
                         <circle cx="128" cy="128" r="110" className="text-gray-100" strokeWidth="12" stroke="currentColor" fill="none" />
                         <circle cx="128" cy="128" r="110" className={phaseColor} strokeWidth="12" stroke="currentColor" fill="none" 
                             strokeDasharray={2 * Math.PI * 110} 
-                            strokeDashoffset={2 * Math.PI * 110 - (cycleDay / cycleLength) * 2 * Math.PI * 110} 
+                            strokeDashoffset={2 * Math.PI * 110 - (Math.min(cycleDay, cycleLength) / cycleLength) * 2 * Math.PI * 110} 
                             strokeLinecap="round" 
                             style={{ transition: 'stroke-dashoffset 1s ease-out' }}
                         />
@@ -85,11 +213,15 @@ const Cycle: React.FC = () => {
                 <div className="w-full bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex items-center justify-between">
                     <div>
                         <h3 className="text-sm font-semibold text-gray-800">Prochaines règles dans</h3>
-                        <p className="text-[10px] font-medium text-gray-400">Prédiction basée sur 28 jours</p>
+                        <p className="text-[10px] font-medium text-gray-400">Prédiction basée sur {cycleLength} jours</p>
                     </div>
-                    <div className="bg-rose-50 border border-rose-100 rounded-xl px-4 py-2 text-center">
-                        <p className="text-2xl font-extrabold text-rose-500">{nextPeriod}</p>
-                        <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">Jours</p>
+                    <div className="bg-rose-50 border border-rose-100 rounded-xl px-4 py-2 text-center flex-shrink-0">
+                        <p className="text-2xl font-extrabold text-rose-500">
+                            {cycleDay > cycleLength ? "Retard" : nextPeriod}
+                        </p>
+                        <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest">
+                            {cycleDay > cycleLength ? "" : "Jours"}
+                        </p>
                     </div>
                 </div>
 
@@ -109,26 +241,29 @@ const Cycle: React.FC = () => {
                 <div className="w-full">
                     <h2 className="text-sm font-semibold text-gray-500 mb-3">Symptômes d'aujourd'hui</h2>
                     <div className="grid grid-cols-4 gap-2">
-                        {[
-                            { icon: 'sentiment_satisfied', label: 'Bien', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-                            { icon: 'sentiment_dissatisfied', label: 'Triste', color: 'bg-blue-50 text-blue-600 border-blue-100' },
-                            { icon: 'healing', label: 'Douleur', color: 'bg-orange-50 text-orange-600 border-orange-100' },
-                            { icon: 'fastfood', label: 'Fringale', color: 'bg-purple-50 text-purple-600 border-purple-100' },
-                        ].map((symptom, idx) => (
-                            <button key={idx} className={`flex flex-col items-center justify-center p-3 rounded-xl border ${symptom.color} active:scale-95 transition-transform`}>
-                                <span className="material-symbols-outlined mb-1">{symptom.icon}</span>
-                                <span className="text-[9px] font-bold">{symptom.label}</span>
-                            </button>
-                        ))}
+                        {SYMPTOMS.map((symptom, idx) => {
+                            const isActive = todaySymptoms.includes(symptom.label);
+                            return (
+                                <button 
+                                    key={idx} 
+                                    onClick={() => logSymptom(symptom.label)}
+                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${isActive ? symptom.active : symptom.color}`}
+                                >
+                                    <span className="material-symbols-outlined mb-1">{symptom.icon}</span>
+                                    <span className="text-[9px] font-bold truncate w-full text-center">{symptom.label}</span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {/* Log Period Button */}
-                <button className="w-full max-w-sm mt-4 py-4 rounded-xl bg-white border border-rose-200 text-rose-500 font-semibold text-sm shadow-sm hover:bg-rose-50 active:scale-[0.98] transition-all">
-                    <span className="flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-lg">edit_calendar</span>
-                        Marquer le début des règles
-                    </span>
+                <button 
+                    onClick={markPeriodStart}
+                    className="w-full max-w-sm mt-4 py-4 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold text-sm shadow-md hover:opacity-90 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
+                >
+                    <span className="material-symbols-outlined text-lg">edit_calendar</span>
+                    Marquer le début des règles
                 </button>
             </div>
         </div>
@@ -136,3 +271,4 @@ const Cycle: React.FC = () => {
 };
 
 export default Cycle;
+
