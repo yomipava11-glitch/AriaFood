@@ -112,7 +112,7 @@ const Cycle: React.FC = () => {
                 setTodaySymptoms(prev => [...prev, symptom]);
                 await supabase
                     .from('cycle_symptoms')
-                    .insert({ user_id: userId, date: todayStr, symptom });
+                    .upsert({ user_id: userId, date: todayStr, symptom }, { onConflict: 'user_id,date,symptom' });
             }
         } catch (error) {
             console.error("Error logging symptom:", error);
