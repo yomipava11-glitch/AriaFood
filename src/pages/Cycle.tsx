@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { scheduleCycleReminder } from '../lib/notifications';
 
 const Cycle: React.FC = () => {
     const navigate = useNavigate();
@@ -86,6 +87,10 @@ const Cycle: React.FC = () => {
                 const calcPhase = getPhaseDetails(currentDay, profile.cycle_length || 28, 5).name;
                 fetchAiInsight(calcPhase, currentDay, profile.cycle_length || 28, 5, currentSymptoms, profile);
                 
+                // Automate notifications
+                const nextPeriodInDays = (profile.cycle_length || 28) - currentDay + 1 > 0 ? (profile.cycle_length || 28) - currentDay + 1 : 0;
+                scheduleCycleReminder(nextPeriodInDays);
+                
             } else {
                 setNeedsSetup(true);
             }
@@ -150,6 +155,10 @@ const Cycle: React.FC = () => {
             const calcPhase = getPhaseDetails(dDay, formCycleLength, formPeriodDuration).name;
             fetchAiInsight(calcPhase, dDay, formCycleLength, formPeriodDuration, [], fullProfile);
 
+            // Planifie l'alerte
+            const nextP = formCycleLength - dDay + 1 > 0 ? formCycleLength - dDay + 1 : 0;
+            scheduleCycleReminder(nextP);
+
         } catch (error) {
             console.error("Error saving setup:", error);
             alert("Erreur lors de l'enregistrement");
@@ -169,6 +178,9 @@ const Cycle: React.FC = () => {
             // Re-fetch AI for Day 1
             const calcPhase = getPhaseDetails(1, cycleLength, periodDuration).name;
             fetchAiInsight(calcPhase, 1, cycleLength, periodDuration, [], fullProfile);
+            
+            // Re-schedule for new cycle length
+            scheduleCycleReminder(cycleLength);
             
         } catch (error) {
             console.error("Error updating period start:", error);

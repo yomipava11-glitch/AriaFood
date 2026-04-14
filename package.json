@@ -16,6 +16,7 @@
     "@capacitor/core": "^8.3.0",
     "@capacitor/device": "^8.0.2",
     "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/local-notifications": "^8.0.2",
     "@capacitor/preferences": "^8.0.1",
     "@capgo/capacitor-pedometer": "^8.0.26",
     "@lottiefiles/dotlottie-react": "^0.18.10",

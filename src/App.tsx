@@ -20,7 +20,7 @@ import Workout from './pages/Workout';
 import Cycle from './pages/Cycle';
 
 import { DataProvider, useData } from './context/DataContext';
-
+import { scheduleHydrationReminder } from './lib/notifications';
 const AppRoutes = () => {
     const { userProfile, loading } = useData();
 
@@ -57,6 +57,11 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+      
+      // Init background notification jobs once logged in
+      if (session) {
+          scheduleHydrationReminder();
+      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(prev => {
