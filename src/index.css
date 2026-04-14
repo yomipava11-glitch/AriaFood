@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+@import "tailwindcss";
+
+/* ========================================================
+   AriaFood Premium V2 Design Tokens (Emerald & Glow)
+   ======================================================== */
+@theme {
+    --color-primary: #10b981; /* Emerald 500 */
+    --color-primary-glow: rgba(16, 185, 129, 0.4);
+    --color-bg-deep: #f8fafc; /* Slate 50 */
+    --color-bg-surface: #ffffff;
+    --color-glass-bg: rgba(255, 255, 255, 0.7);
+    --color-glass-border: rgba(0, 0, 0, 0.05);
+    --color-accent-lime: #10b981;
+    --color-accent-blue: #3b82f6;
+    --font-display: "Inter", sans-serif;
+}
+
+@layer base {
+    * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body,
+    #root {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+        background: var(--color-bg-deep);
+    }
+
+    body {
+        /* Soft Light Gradient Layering */
+        background:
+            radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+            #f8fafc;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+    }
+}
+
+@layer components {
+
+    /* Advanced Glassmorphism for Light Mode */
+    .glass-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--color-glass-border);
+        border-radius: 28px;
+        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+    }
+
+    .glass-button {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-button:active {
+        transform: scale(0.95);
+        background: rgba(255, 255, 255, 1);
+    }
+
+    /* Holographic Effects */
+    .hologram-overlay::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(0deg,
+                transparent,
+                transparent 2px,
+                rgba(16, 185, 129, 0.03) 3px,
+                transparent 4px);
+        pointer-events: none;
+        z-index: 10;
+        animation: scanline 10s linear infinite;
+    }
+
+    @keyframes scanline {
+        from {
+            background-position: 0 0;
+        }
+
+        to {
+            background-position: 0 100%;
+        }
+    }
+
+    .neon-text-glow {
+        text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Animations */
+    @keyframes scan-laser {
+
+        0%,
+        100% {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        20% {
+            opacity: 1;
+        }
+
+        80% {
+            opacity: 1;
+        }
+
+        100% {
+            transform: translateY(100%);
+        }
+    }
+
+    .animate-scan {
+        animation: scan-laser 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes float {
+
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-8px);
+        }
+    }
+
+    .animate-float {
+        animation: float 5s ease-in-out infinite;
+    }
+
+    @keyframes flicker {
+
+        0%,
+        19.999%,
+        22%,
+        62.999%,
+        64%,
+        64.999%,
+        70%,
+        100% {
+            opacity: 0.99;
+            filter: drop-shadow(0 0 1px rgba(16, 185, 129, 0.4));
+        }
+
+        20%,
+        21.999%,
+        63%,
+        63.999%,
+        65%,
+        69.999% {
+            opacity: 0.4;
+            filter: none;
+        }
+    }
+
+    .animate-flicker {
+        animation: flicker 4s linear infinite;
+    }
+
+    /* Loading Bar Animation */
+    @keyframes loading-bar {
+        0% {
+            transform: translateX(-100%);
+            width: 30%;
+        }
+
+        50% {
+            width: 60%;
+        }
+
+        100% {
+            transform: translateX(400%);
+            width: 30%;
+        }
+    }
+
+    .animate-loading-bar {
+        animation: loading-bar 1.5s ease-in-out infinite;
+    }
+
+    /* Glass Bottom Nav */
+    .glass-nav {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 -5px 40px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Dashboard Ring Enhancement */
+    .ring-liquid-fill {
+        filter: url(#liquid-filter);
+    }
+}
+
+/* Material Symbols Customization */
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined' !important;
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
