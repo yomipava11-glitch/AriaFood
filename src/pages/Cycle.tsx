@@ -25,10 +25,9 @@ const Cycle: React.FC = () => {
     const [loadingAi, setLoadingAi] = useState(false);
 
     // === Onboarding form state ===
-    const [setupStep, setSetupStep] = useState(0);
     const [formLastPeriod, setFormLastPeriod] = useState('');
     const [formCycleLength, setFormCycleLength] = useState(28);
-    const [formPeriodDuration, setFormPeriodDuration] = useState(5);
+    const formPeriodDuration = 5;
     const [savingSetup, setSavingSetup] = useState(false);
 
     useEffect(() => {
