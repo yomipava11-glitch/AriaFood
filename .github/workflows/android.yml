@@ -22,6 +22,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Create Env File
+        run: |
+          echo "VITE_SUPABASE_URL=https://ncoaeyhnvpjlvmakzpft.supabase.co" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jb2FleWhudnBqbHZtYWt6cGZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTc5OTAsImV4cCI6MjA4Nzg5Mzk5MH0.jZowyEBIDQkj3BLfEUrQoFpsBAoMgxkDCZgvJzcCXq0" >> .env
+
       - name: Build Web App
         run: npm run build
 
