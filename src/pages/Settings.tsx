@@ -119,7 +119,13 @@ const Settings: React.FC = () => {
                     </button>
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-lg font-bold text-gray-900 truncate">{userProfile?.full_name || 'Explorateur'}</p>
+                    <input 
+                        type="text" 
+                        value={userProfile?.full_name || ''} 
+                        onChange={(e) => updateProfile({ full_name: e.target.value })}
+                        placeholder="Votre nom"
+                        className="text-lg font-bold text-gray-900 truncate bg-transparent border-none outline-none w-full p-0 focus:ring-0 placeholder-gray-300"
+                    />
                     <p className="text-xs text-gray-400 truncate">{email}</p>
                     <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>

@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { PREMIUM_CATEGORIES } from '../data/mockData';
 import { useData } from '../context/DataContext';
+import WaterTracker from '../components/WaterTracker';
+import DashboardChart from '../components/DashboardChart';
 
 const Dashboard: React.FC = () => {
     const { foodLogs, userProfile, waterIntake, addWater, loading } = useData();
@@ -30,7 +32,6 @@ const Dashboard: React.FC = () => {
     const radius = 70;
     const circ = 2 * Math.PI * radius;
     const offset = circ - (pct / 100) * circ;
-    const waterPct = Math.min((waterIntake / 2000) * 100, 100);
 
     const avatarUrl = userProfile?.avatar_url || 'https://i.pravatar.cc/150?u=ariafood_v2';
 
@@ -92,39 +93,11 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Water Tracking */}
-                <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-center">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-blue-500 text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>water_drop</span>
-                            <h3 className="text-sm font-semibold text-gray-700">Hydratation</h3>
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900">{waterIntake} <span className="text-gray-400 font-normal">/ 2000 ml</span></p>
-                    </div>
-                    
-                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden mb-5 relative">
-                         <div 
-                             className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-1000 rounded-full"
-                             style={{ width: `${waterPct}%` }}
-                         />
-                    </div>
-
-                    <div className="flex gap-3">
-                        <button 
-                            onClick={() => addWater(250)}
-                            className="flex-1 bg-blue-50 hover:bg-blue-100 py-3 flex items-center justify-center gap-2 rounded-xl text-blue-600 text-sm font-semibold active:scale-95 transition-all"
-                        >
-                            <span className="material-symbols-outlined text-base">local_drink</span>
-                            +250 ml
-                        </button>
-                        <button 
-                            onClick={() => addWater(500)}
-                            className="flex-1 bg-blue-50 hover:bg-blue-100 py-3 flex items-center justify-center gap-2 rounded-xl text-blue-600 text-sm font-semibold active:scale-95 transition-all"
-                        >
-                            <span className="material-symbols-outlined text-base">water_bottle</span>
-                            +500 ml
-                        </button>
-                    </div>
-                </div>
+                <WaterTracker 
+                    currentAmount={waterIntake}
+                    goal={userProfile?.weight_kg && userProfile?.activity_level ? (userProfile.weight_kg * 35) + (userProfile.activity_level === 'Active' || userProfile.activity_level === 'Very Active' ? 500 : 0) : 2000} 
+                    onAddWater={addWater} 
+                />
             </div>
 
             {/* Sport & Female Health */}
@@ -170,6 +143,9 @@ const Dashboard: React.FC = () => {
                 </div>
             </section>
 
+            {/* AI Insights & Chart */}
+            <DashboardChart logs={foodLogs} />
+
             {/* Recent Scans */}
             <section>
                 <div className="flex justify-between items-center mb-4">
@@ -208,7 +184,7 @@ const Dashboard: React.FC = () => {
                                 </div>
                                 <div className="p-3">
                                     <p className="text-sm font-semibold text-gray-800 truncate">{log.food_name}</p>
-                                    <p className="text-[11px] text-gray-400 mt-0.5">Analysé par IA</p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">Analysé récemment</p>
                                 </div>
                             </NavLink>
                         ))}

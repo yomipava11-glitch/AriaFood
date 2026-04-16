@@ -18,6 +18,7 @@ import Onboarding from './pages/Onboarding';
 import ChatAssistant from './pages/ChatAssistant';
 import Workout from './pages/Workout';
 import Cycle from './pages/Cycle';
+import Feed from './pages/Feed';
 
 import { DataProvider, useData } from './context/DataContext';
 import { scheduleHydrationReminder } from './lib/notifications';
@@ -43,6 +44,7 @@ const AppRoutes = () => {
                 <Route path="chat" element={<ChatAssistant />} />
                 <Route path="workout" element={<Workout />} />
                 <Route path="cycle" element={<Cycle />} />
+                <Route path="feed" element={<Feed />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

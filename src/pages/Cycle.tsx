@@ -22,6 +22,7 @@ const Cycle: React.FC = () => {
 
     // === AI State ===
     const [aiInsight, setAiInsight] = useState<string>('');
+    const [aiSupplements, setAiSupplements] = useState<{name: string, reason: string}[]>([]);
     const [loadingAi, setLoadingAi] = useState(false);
 
     // === Onboarding form state ===
@@ -38,8 +39,9 @@ const Cycle: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) return;
+            const user = session.user;
             setUserId(user.id);
 
             const { data: profile } = await supabase
@@ -130,6 +132,11 @@ const Cycle: React.FC = () => {
                 setAiInsight(data.insight);
             } else {
                 setAiInsight(getFallbackInsight(phaseName));
+            }
+            if (data.supplements) {
+                setAiSupplements(data.supplements);
+            } else {
+                setAiSupplements([]);
             }
         } catch (err) {
             console.error("AI Insight Error:", err);
@@ -380,28 +387,38 @@ const Cycle: React.FC = () => {
                         {/* Decorative top gradient line */}
                         <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${phaseParams.gradient}`}></div>
                         
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${phaseParams.gradient} flex items-center justify-center shadow-md`}>
-                                <span className="material-symbols-outlined text-white text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className={`w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-md flex-shrink-0`}>
+                                <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
                             </div>
-                            <h2 className="text-[13px] font-bold text-gray-800 tracking-wide uppercase">Analyse IA en temps réel</h2>
+                            <div>
+                                <h2 className="text-[13px] font-bold text-gray-800 tracking-wide uppercase">Analyse du Cycle</h2>
+                                <p className={`text-[10px] font-semibold ${phaseParams.color}`}>{phaseParams.name} · Jour {cycleDay}</p>
+                            </div>
                         </div>
                         
-                        <div className="pl-11 pr-2 min-h-[60px]">
+                        <div className="min-h-[80px]">
                             {loadingAi ? (
-                                <div className="space-y-2 animate-pulse">
-                                    <div className="h-3 bg-gray-100 rounded w-3/4"></div>
-                                    <div className="h-3 bg-gray-100 rounded w-full"></div>
-                                    <div className="h-3 bg-gray-100 rounded w-5/6"></div>
+                                <div className="space-y-2.5 animate-pulse">
+                                    <div className="h-3 bg-gray-100 rounded-full w-full"></div>
+                                    <div className="h-3 bg-gray-100 rounded-full w-5/6"></div>
+                                    <div className="h-3 bg-gray-100 rounded-full w-4/5"></div>
+                                    <div className="h-3 bg-gray-100 rounded-full w-full"></div>
+                                    <div className="h-3 bg-gray-100 rounded-full w-3/4"></div>
                                 </div>
+                            ) : aiInsight ? (
+                                <p className="text-[14px] text-gray-700 leading-relaxed">
+                                    {aiInsight}
+                                </p>
                             ) : (
-                                <p className="text-[14px] text-gray-600 leading-relaxed font-medium">
-                                    {aiInsight || "Mettez à jour vos symptômes pour recevoir des recommandations adaptées."}
+                                <p className="text-[13px] text-gray-400 italic">
+                                    Sélectionnez vos symptômes du jour pour recevoir des recommandations personnalisées.
                                 </p>
                             )}
                         </div>
                     </div>
                 </div>
+
 
                 {/* SYMPTOM TRACKER (Glassmorphism Tiles) */}
                 <div className="w-full">
@@ -431,6 +448,28 @@ const Cycle: React.FC = () => {
                         })}
                     </div>
                 </div>
+
+                {/* AI SUPPLEMENT RECOMMENDATIONS */}
+                {aiSupplements.length > 0 && (
+                    <div className="w-full">
+                        <div className="flex justify-between items-end mb-4 px-1 mt-2">
+                            <h2 className="text-sm font-bold text-gray-800">Compléments Suggérés</h2>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {aiSupplements.map((sup, idx) => (
+                                <div key={idx} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-white shadow-sm flex items-start gap-4">
+                                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-sm flex items-center justify-center flex-shrink-0 text-white">
+                                        <span className="material-symbols-outlined text-xl">medication_liquid</span>
+                                     </div>
+                                     <div>
+                                         <h4 className="text-[13px] font-bold text-gray-900">{sup.name}</h4>
+                                         <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{sup.reason}</p>
+                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* SMART CONTEXTUAL BUTTON */}
                 <div className="w-full pt-4 pb-8">

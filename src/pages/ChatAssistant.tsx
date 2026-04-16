@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { Send, Bot, User, Sparkles, Trash2 } from 'lucide-react';
+import { Send, User, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ChatMessage {
@@ -53,7 +53,7 @@ export default function ChatAssistant() {
           // First time - show welcome message and save it
           const welcomeMsg: ChatMessage = {
             role: 'assistant',
-            content: `Bonjour ${userProfile?.full_name || ''} ! 👋\n\nJe suis Aria, votre assistant nutritionnel personnel. J'ai accès à votre profil de santé et à votre historique alimentaire pour vous donner des conseils personnalisés.\n\nComment puis-je vous aider ?`
+            content: `Bonjour ${userProfile?.full_name || ''} ! 👋\n\nJe suis l'assistant nutritionnel. J'ai accès à votre profil de santé et à votre historique alimentaire pour vous donner des conseils personnalisés.\n\nComment puis-je vous aider ?`
           };
           setMessages([welcomeMsg]);
           await saveMessage(userId, welcomeMsg);
@@ -62,7 +62,7 @@ export default function ChatAssistant() {
         console.error('Error loading chat history:', err);
         setMessages([{
           role: 'assistant',
-          content: `Bonjour ! Je suis Aria, votre assistant nutritionnel. Comment puis-je vous aider ?`
+          content: `Bonjour ! Je suis l'assistant nutritionnel. Comment puis-je vous aider ?`
         }]);
       } finally {
         setLoadingHistory(false);
@@ -149,11 +149,15 @@ export default function ChatAssistant() {
       setMessages(prev => [...prev, assistantMsg]);
       await saveMessage(userId, assistantMsg);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Chat error:', error);
+      
+      // Check if backend returned a specific error message
+      const errorText = error?.message || "Désolé, une erreur est survenue lors de la connexion au serveur. Veuillez réessayer.";
+      
       const errorMsg: ChatMessage = {
         role: 'assistant',
-        content: "Désolé, une erreur est survenue lors de la connexion au serveur. Veuillez réessayer."
+        content: errorText
       };
       setMessages(prev => [...prev, errorMsg]);
       await saveMessage(userId, errorMsg);
@@ -172,11 +176,11 @@ export default function ChatAssistant() {
       {/* Header */}
       <div className="bg-white px-4 py-3 z-10 flex items-center justify-between border-b border-gray-100 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="bg-emerald-100 p-2 rounded-full">
-            <Sparkles className="w-5 h-5 text-emerald-600" />
+          <div className="bg-emerald-50 p-1.5 rounded-full border border-emerald-100 flex items-center justify-center">
+            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-gray-900">Aria Assistant</h2>
+            <h2 className="text-base font-bold text-gray-900">Assistant Nutritionnel</h2>
             <p className="text-[11px] text-emerald-600 font-medium">Connecté à vos données</p>
           </div>
         </div>
@@ -201,10 +205,10 @@ export default function ChatAssistant() {
             {messages.map((msg, idx) => (
               <div key={msg.id || idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex gap-2.5 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-1 ${
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1 ${
                     msg.role === 'user' ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-emerald-600'
                   }`}>
-                    {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                    {msg.role === 'user' ? <User className="w-5 h-5" /> : <img src="/logo.png" alt="Assistant" className="w-7 h-7 object-contain" />}
                   </div>
                   <div>
                     <div className={`px-4 py-3 rounded-2xl ${
@@ -226,8 +230,8 @@ export default function ChatAssistant() {
             {loading && (
               <div className="flex justify-start">
                 <div className="flex gap-2.5 max-w-[85%]">
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-white border border-gray-200 text-emerald-600 flex items-center justify-center mt-1">
-                    <Bot className="w-4 h-4" />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white border border-gray-200 text-emerald-600 flex items-center justify-center mt-1">
+                    <img src="/logo.png" alt="Assistant" className="w-7 h-7 object-contain" />
                   </div>
                   <div className="px-4 py-3 rounded-2xl bg-white border border-gray-100 shadow-sm rounded-tl-md flex items-center gap-1.5 h-10">
                     <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

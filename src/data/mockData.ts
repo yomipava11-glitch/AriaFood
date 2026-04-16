@@ -15,6 +15,7 @@ export interface FoodLog {
     health_tips: string;
     image_url: string;
     created_at: string;
+    recipes?: any[];
 }
 
 export const MOCK_USER = {

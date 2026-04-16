@@ -39,8 +39,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <div className="p-6 pb-4 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center overflow-hidden">
-                                <img src="/logo.png" alt="AriaFood" className="w-8 h-8 object-contain" />
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center overflow-hidden">
+                                <img src="/logo.png" alt="AriaFood" className="w-10 h-10 object-contain" />
                             </div>
                             <div>
                                 <h2 className="text-lg font-extrabold text-gray-900 tracking-tighter">

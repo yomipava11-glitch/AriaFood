@@ -8,9 +8,10 @@ const Scan: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     const [photoData, setPhotoData] = useState<string | null>(null);
-    const [status, setStatus] = useState<'IDLE' | 'CAMERA_ACTIVE' | 'ANALYZING'>('IDLE');
+    const [status, setStatus] = useState<'STARTING' | 'IDLE' | 'CAMERA_ACTIVE' | 'ANALYZING'>('STARTING');
     const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
     const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ const Scan: React.FC = () => {
                 video: { facingMode: { ideal: selectedMode }, width: { ideal: 1280 }, height: { ideal: 960 } },
                 audio: false
             });
+            streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 setStatus('CAMERA_ACTIVE');
@@ -47,13 +49,16 @@ const Scan: React.FC = () => {
         } catch (err: any) {
             console.error("Camera error:", err);
             setCameraError("Impossible d'accéder à la caméra. Utilisez l'import de fichier.");
+            setStatus('IDLE');
         }
     };
 
     const stopCamera = () => {
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        if (videoRef.current) {
             videoRef.current.srcObject = null;
         }
     };
@@ -70,8 +75,17 @@ const Scan: React.FC = () => {
             const ctx = canvas.getContext('2d');
 
             if (ctx) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
+                // Limiter la résolution pour réduire la taille du base64
+                const MAX_DIM = 800;
+                let w = video.videoWidth;
+                let h = video.videoHeight;
+                if (w > MAX_DIM || h > MAX_DIM) {
+                    const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                canvas.width = w;
+                canvas.height = h;
 
                 // Mirror if front camera
                 if (facingMode === 'user') {
@@ -79,8 +93,8 @@ const Scan: React.FC = () => {
                     ctx.scale(-1, 1);
                 }
 
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const data = canvas.toDataURL('image/jpeg', 0.85);
+                ctx.drawImage(video, 0, 0, w, h);
+                const data = canvas.toDataURL('image/jpeg', 0.6);
                 setPhotoData(data);
                 stopCamera();
                 setStatus('IDLE');
@@ -91,13 +105,28 @@ const Scan: React.FC = () => {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setPhotoData(reader.result as string);
+        // Compresser l'image importée via canvas
+        const img = new Image();
+        img.onload = () => {
+            const MAX_DIM = 800;
+            let w = img.width;
+            let h = img.height;
+            if (w > MAX_DIM || h > MAX_DIM) {
+                const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL('image/jpeg', 0.6);
+            setPhotoData(compressed);
             stopCamera();
             setStatus('IDLE');
         };
-        reader.readAsDataURL(file);
+        img.src = URL.createObjectURL(file);
     };
 
     const retake = () => {
@@ -111,7 +140,7 @@ const Scan: React.FC = () => {
         setStatus('ANALYZING');
 
         try {
-            const { data, error } = await supabase.functions.invoke('ai-scanner-v1', {
+            const { data, error } = await supabase.functions.invoke('analyze-food', {
                 body: { image: photoData }
             });
 
@@ -144,7 +173,7 @@ const Scan: React.FC = () => {
                 </button>
                 <div className="text-center">
                     <h1 className="text-lg font-bold text-gray-900">Scanner</h1>
-                    <p className="text-xs text-gray-400">Analysez votre repas par IA</p>
+                    <p className="text-xs text-gray-400">Analysez votre repas</p>
                 </div>
                 <div className="w-10"></div>
             </div>
@@ -177,7 +206,7 @@ const Scan: React.FC = () => {
                     )}
 
                     {/* Idle State (no camera, no photo) */}
-                    {status === 'IDLE' && !photoData && !cameraError && (
+                    {(status === 'IDLE' || status === 'STARTING') && !photoData && !cameraError && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
                             <span className="material-symbols-outlined text-5xl text-gray-500 mb-3">photo_camera</span>
                             <p className="text-sm text-gray-400">Démarrage de la caméra...</p>
@@ -189,7 +218,7 @@ const Scan: React.FC = () => {
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-30">
                             <div className="w-14 h-14 border-3 border-gray-600 border-t-emerald-400 rounded-full animate-spin mb-4"></div>
                             <p className="text-white text-sm font-semibold">Analyse en cours...</p>
-                            <p className="text-gray-400 text-xs mt-1">L'IA identifie votre repas</p>
+                            <p className="text-gray-400 text-xs mt-1">AriaFood identifie votre repas</p>
                         </div>
                     )}
 
@@ -233,13 +262,13 @@ const Scan: React.FC = () => {
                 {/* Action Buttons */}
                 <div className="mt-6 w-full space-y-3">
                     {/* No photo, no camera */}
-                    {!photoData && status !== 'CAMERA_ACTIVE' && !cameraError && (
+                    {!photoData && status === 'IDLE' && (
                         <>
                             <button onClick={() => startCamera()}
                                 className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-semibold text-sm shadow-md hover:bg-emerald-600 active:scale-[0.98] transition-all">
                                 <span className="flex items-center justify-center gap-2">
                                     <span className="material-symbols-outlined text-lg">photo_camera</span>
-                                    Ouvrir la caméra
+                                    Réessayer la caméra
                                 </span>
                             </button>
                             <button onClick={() => fileInputRef.current?.click()}
@@ -258,8 +287,8 @@ const Scan: React.FC = () => {
                             <button onClick={runAIAnalysis}
                                 className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-semibold text-sm shadow-md hover:bg-emerald-600 active:scale-[0.98] transition-all">
                                 <span className="flex items-center justify-center gap-2">
-                                    <span className="material-symbols-outlined text-lg">auto_awesome</span>
-                                    Analyser avec l'IA
+                                    <img src="/logo.png" alt="logo" className="w-[18px] h-[18px] object-contain brightness-0 invert" />
+                                    Analyser le repas
                                 </span>
                             </button>
                             <button onClick={retake}

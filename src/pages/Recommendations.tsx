@@ -68,7 +68,7 @@ const Recommendations: React.FC = () => {
             {/* Daily AI Tips */}
             <section>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-500 italic">Conseils IA du Jour</h2>
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-500 italic">Conseils du Jour</h2>
                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
                 </div>
                 <div className="space-y-3">
@@ -184,7 +184,7 @@ const Recommendations: React.FC = () => {
             <section>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-500 italic">Produits Recommandés</h2>
-                    <span className="text-[9px] font-black text-primary uppercase">IA</span>
+                    <span className="text-[9px] font-black text-primary uppercase">Prédiction</span>
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-5 px-5">
                     {RECOMMENDED_PRODUCTS.map((prod, i) => (

@@ -14,7 +14,7 @@ Deno.serve(async (req: Request) => {
     const { phase, cycleDay, cycleLength, periodDuration, symptoms, profile } = body;
 
     // @ts-ignore
-    const apiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || "AIzaSyDfxVXMfaSvJiHvBfPFr6HJhlYn7TTckE0";
+    const apiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || "AIzaSyAGxqXBd9vn34rmymvFo9SCtIU7-2UEmg0";
 
     let context = `Tu es Aria, une assistante IA spécialisée en santé féminine et nutrition hormonale pour l'application AriaCycle. Tu réponds TOUJOURS en français.\n\n=== DONNÉES DU CYCLE ===\nJour du cycle: J${cycleDay}\nPhase actuelle: ${phase}\nDurée du cycle: ${cycleLength} jours\nDurée des règles: ${periodDuration} jours\n`;
 
@@ -30,40 +30,86 @@ Deno.serve(async (req: Request) => {
       if (profile.allergies) context += `Allergies: ${profile.allergies}\n`;
     }
 
-    context += `\nGénère un conseil personnalisé et bienveillant en 3-4 phrases maximum. Le conseil doit couvrir:\n1. Un conseil NUTRITION adapté à cette phase hormonale (aliments spécifiques à privilégier/éviter)\n2. Un conseil ACTIVITÉ PHYSIQUE adapté au niveau d'énergie de cette phase\n3. Un conseil BIEN-ÊTRE si des symptômes sont signalés\n\nSois précise, concrète et chaleureuse. Utilise des emojis avec parcimonie (1-2 max). Ne mentionne pas que tu es une IA.`;
+    context += `\nTu dois STRICTEMENT renvoyer un objet JSON valide avec cette structure exacte :
+{
+  "insight": "Ton conseil personnalisé en maximum 4 phrases. Termine bien tes phrases.",
+  "supplements": [
+    {
+      "name": "Nom du complément (ex: Magnésium)",
+      "reason": "Pourquoi c'est recommandé aujourd'hui"
+    }
+  ]
+}
+S'il n'y a pas de symptômes particuliers, renvoie un tableau vide pour supplements. NE RENVOIE AUCUN TEXTE EN DEHORS DU JSON.`;
 
-    const candidates = ["gemini-1.5-flash", "gemini-2.0-flash"]; // Reordered
+    const candidates = ["gemini-2.5-flash", "gemini-flash-latest"];
     let lastError: any = null;
 
     for (const modelId of candidates) {
       try {
+        console.log(`[INSIGHTS] Attempting ${modelId}`);
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: context }] }],
-            generationConfig: { temperature: 0.8, maxOutputTokens: 300 }
+            generationConfig: { 
+              temperature: 0.7, 
+              maxOutputTokens: 2000,
+              thinkingConfig: { thinkingBudget: 0 },
+              responseMimeType: "application/json"
+            }
           })
         });
 
         const data = await res.json();
-        if (data.error) { lastError = data.error; continue; }
-
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          return new Response(JSON.stringify({ insight: text }), {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        } else {
-            // Safety blocked or something else
-            lastError = data;
+        if (data.error) { 
+          lastError = data.error; 
+          console.error(`[INSIGHTS] ${modelId} failed:`, data.error.message);
+          continue; 
         }
-      } catch (e) { lastError = Object.assign({}, e); }
+
+        const candidate = data.candidates?.[0];
+        const finishReason = candidate?.finishReason;
+        console.log(`[INSIGHTS] ${modelId} finishReason: ${finishReason}`);
+
+        // Reject if explicitly truncated
+        if (finishReason === 'MAX_TOKENS') {
+          console.warn(`[INSIGHTS] ${modelId} truncated (MAX_TOKENS), trying next model`);
+          lastError = { message: 'Truncated' };
+          continue;
+        }
+
+        // Collect all text parts (thinking models may have multiple parts)
+        const parts = candidate?.content?.parts || [];
+        const text = parts
+          .filter((p: any) => p.text && !p.thought)  // exclude thought/reasoning parts
+          .map((p: any) => p.text)
+          .join('').trim();
+
+        if (text && text.length > 20) {
+          console.log(`[INSIGHTS] ${modelId} success, text length: ${text.length}`);
+          try {
+            const parsed = JSON.parse(text);
+            return new Response(JSON.stringify(parsed), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          } catch(e) {
+            return new Response(text, {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        } else {
+          console.warn(`[INSIGHTS] ${modelId} returned empty or too-short text`);
+          lastError = { message: 'Empty response' };
+        }
+      } catch (e) { lastError = e; }
     }
 
-    return new Response(JSON.stringify({ insight: null, error: "AI unavailable", details: lastError }), {
+    return new Response(JSON.stringify({ insight: "Désolé, Aria n'est pas disponible pour le moment. Réessayez plus tard.", error: "AI unavailable", details: lastError }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 

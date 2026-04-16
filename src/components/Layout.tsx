@@ -6,17 +6,32 @@
 import { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { useData } from '../context/DataContext';
 
-const NAV = [
+const BASE_NAV = [
     { to: '/', icon: 'home', label: 'Accueil' },
     { to: '/history', icon: 'menu_book', label: 'Journal' },
     { to: '/scan', icon: 'qr_code_scanner', label: 'Scan', center: true },
-    { to: '/chat', icon: 'auto_awesome', label: 'Aria IA' },
+    { to: '/feed', icon: 'groups', label: 'Social' },
+    { to: '/settings', icon: 'person', label: 'Profil' },
+];
+
+const FEMALE_NAV = [
+    { to: '/', icon: 'home', label: 'Accueil' },
+    { to: '/history', icon: 'menu_book', label: 'Journal' },
+    { to: '/scan', icon: 'qr_code_scanner', label: 'Scan', center: true },
+    { to: '/feed', icon: 'groups', label: 'Social' },
     { to: '/settings', icon: 'person', label: 'Profil' },
 ];
 
 const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { userProfile } = useData();
+
+    const isFemale = userProfile?.gender === 'female';
+    // Mettre l'icône Cycle au-dessus du Social sur Desktop s'il n'y a pas assez de place, 
+    // ou tout remplacer pour la nav du bas
+    const NAV = isFemale ? FEMALE_NAV : BASE_NAV;
 
     return (
         <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -32,19 +47,34 @@ const Layout = () => {
                     <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400 mt-1">Nutrition Intelligence</p>
                 </div>
                 <nav className="flex-1 space-y-1">
-                    {NAV.map(({ to, icon, label }) => (
-                        <NavLink key={to} to={to} end={to === '/'}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-                                }`
-                            }>
-                            <span className="material-symbols-outlined text-xl"
-                                style={{ fontVariationSettings: "'FILL' 0" }}>{icon}</span>
-                            <span className="tracking-wide">{label}</span>
+                    {/* Liens de base */}
+                    <NavLink to="/" end className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>home</span><span className="tracking-wide">Accueil</span>
+                    </NavLink>
+                    <NavLink to="/history" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>menu_book</span><span className="tracking-wide">Journal</span>
+                    </NavLink>
+                    <NavLink to="/scan" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>qr_code_scanner</span><span className="tracking-wide">Scan</span>
+                    </NavLink>
+                    <NavLink to="/feed" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>groups</span><span className="tracking-wide">Communauté</span>
+                    </NavLink>
+                    {isFemale && (
+                        <NavLink to="/cycle" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>cycle</span><span className="tracking-wide">Cycle</span>
                         </NavLink>
-                    ))}
+                    )}
+                    <NavLink to="/settings" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
+                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 0" }}>person</span><span className="tracking-wide">Profil</span>
+                    </NavLink>
+                    
+                    {/* Lien Chat (Desktop seulement, car mobile a le FAB) */}
+                    <div className="pt-4 mt-4 border-t border-gray-100">
+                        <NavLink to="/chat" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${isActive ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                            <img src="/logo.png" alt="Assistant" className="w-5 h-5 object-contain filter" /><span className="tracking-wide">Assistant</span>
+                        </NavLink>
+                    </div>
                 </nav>
                 <div className="mt-auto pt-4 border-t border-gray-100">
                     <p className="text-[8px] font-bold text-gray-300 uppercase tracking-widest px-4">AriaFood v3.0</p>
@@ -52,7 +82,7 @@ const Layout = () => {
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden">
+            <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden relative">
                 {/* Top Bar (mobile only) */}
                 <div className="lg:hidden w-full px-5 pt-3 pb-1 flex items-center justify-between flex-shrink-0 z-40">
                     <button
@@ -67,13 +97,23 @@ const Layout = () => {
                     <div className="w-10"></div>
                 </div>
 
-                <main className="flex-1 overflow-y-auto w-full max-w-5xl mx-auto scrollbar-hide relative">
+                <main className="flex-1 overflow-y-auto w-full max-w-5xl mx-auto scrollbar-hide relative pb-20 lg:pb-0">
                     <Outlet />
                 </main>
 
+                {/* Floating Action Button pour Assistant visible globalement sur Mobile & Desktop si nécessaire, 
+                    mais particulièrement utile sur mobile avec la nav bottom */}
+                <div className="absolute right-4 lg:right-8 bottom-28 lg:bottom-10 z-50">
+                    <NavLink to="/chat" className={({ isActive }) => 
+                        `flex items-center justify-center w-14 h-14 rounded-full shadow-[0_8px_30px_rgb(16,185,129,0.3)] transition-all transform hover:scale-110 active:scale-95 ${isActive ? 'bg-teal-600 scale-105' : 'bg-gradient-to-br from-emerald-400 to-teal-600'}`
+                    }>
+                        <img src="/logo.png" alt="Assistant" className="w-11 h-11 object-contain drop-shadow-md" />
+                    </NavLink>
+                </div>
+
                 {/* Mobile Bottom Nav (hidden on desktop) */}
-                <div className="lg:hidden w-full px-4 sm:px-6 pb-4 sm:pb-6 pt-2 flex-shrink-0 z-50">
-                    <nav className="glass-nav flex items-center justify-around py-3 sm:py-4 px-2 rounded-[32px] shadow-2xl relative max-w-lg mx-auto">
+                <div className="lg:hidden w-full px-4 sm:px-6 pb-4 sm:pb-6 pt-2 flex-shrink-0 z-50 bg-gradient-to-t from-gray-50 via-gray-50/90 to-transparent absolute bottom-0 left-0">
+                    <nav className="glass-nav flex items-center justify-around py-3 sm:py-4 px-2 rounded-[32px] shadow-2xl relative max-w-lg mx-auto bg-white/80 backdrop-blur-xl border border-white/40">
                         {NAV.map(({ to, icon, label, center }) =>
                             center ? (
                                 <div key={to} className="relative -mt-12">
@@ -111,4 +151,3 @@ const Layout = () => {
 };
 
 export default Layout;
-
