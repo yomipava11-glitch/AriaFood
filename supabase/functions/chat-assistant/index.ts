@@ -1,3 +1,4 @@
+// @ts-nocheck — Supabase Edge Function (Deno runtime)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -13,11 +14,10 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { message, profile, logs } = body;
 
-    // @ts-ignore
-    const apiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || "AIzaSyAGxqXBd9vn34rmymvFo9SCtIU7-2UEmg0";
+    const groqKey = Deno.env.get("GROQ_API_KEY");
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ reply: "Configuration Error: API Key missing." }), {
+    if (!groqKey) {
+      return new Response(JSON.stringify({ reply: "⚠️ Clé API Groq manquante." }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -28,59 +28,61 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Build context
-    let context = "Tu es Aria, un assistant nutritionnel intelligent et bienveillant pour l'application AriaFood. Tu réponds TOUJOURS en français. Tu donnes des conseils personnalisés basés sur le profil de santé et l'historique alimentaire de l'utilisateur.\n\n";
+    // Build system prompt
+    let systemPrompt = "Tu es Aria, un assistant nutritionnel intelligent et bienveillant pour l'application AriaFood. Tu réponds TOUJOURS en français. Tu donnes des conseils personnalisés basés sur le profil de santé et l'historique alimentaire de l'utilisateur.\n\n";
 
     if (profile) {
-      context += "=== PROFIL UTILISATEUR ===\n";
-      if (profile.name) context += `Nom: ${profile.name}\n`;
-      if (profile.medical_conditions) context += `Conditions médicales: ${profile.medical_conditions}\n`;
-      if (profile.allergies) context += `Allergies/Intolérances: ${profile.allergies}\n`;
-      if (profile.goal) context += `Objectif: ${profile.goal}\n`;
-      context += "\n";
+      systemPrompt += "=== PROFIL UTILISATEUR ===\n";
+      if (profile.name) systemPrompt += `Nom: ${profile.name}\n`;
+      if (profile.medical_conditions) systemPrompt += `Conditions médicales: ${profile.medical_conditions}\n`;
+      if (profile.allergies) systemPrompt += `Allergies/Intolérances: ${profile.allergies}\n`;
+      if (profile.goal) systemPrompt += `Objectif: ${profile.goal}\n`;
+      systemPrompt += "\n";
     }
 
     if (logs && logs.length > 0) {
-      context += "=== DERNIERS REPAS CONSOMMÉS ===\n";
+      systemPrompt += "=== DERNIERS REPAS CONSOMMÉS ===\n";
       for (const log of logs) {
-        context += `- ${log.food_name}: ${log.calories} kcal, ${log.protein_g || 0}g protéines, ${log.carbs_g || 0}g glucides, ${log.fat_g || 0}g lipides\n`;
+        systemPrompt += `- ${log.food_name}: ${log.calories} kcal, ${log.protein_g || 0}g protéines, ${log.carbs_g || 0}g glucides, ${log.fat_g || 0}g lipides\n`;
       }
-      context += "\n";
+      systemPrompt += "\n";
     }
 
-    context += "IMPORTANT: Réponds de manière concise, chaleureuse et utile. Si l'utilisateur mentionne un problème de santé grave, conseille-lui de consulter un médecin. Ne donne jamais de diagnostic médical.\n\n";
-    context += `Message de l'utilisateur: ${message}`;
+    systemPrompt += "IMPORTANT: Réponds de manière concise, chaleureuse et utile. Si l'utilisateur mentionne un problème de santé grave, conseille-lui de consulter un médecin. Ne donne jamais de diagnostic médical.";
 
-    const models = [
-      "gemini-2.5-flash",
-      "gemini-flash-latest"
-    ];
-
+    // Modèles Groq en ordre de priorité
+    const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"];
     let lastError = null;
-    for (const modelId of models) {
+
+    for (const model of models) {
       try {
-        console.log(`[CHAT] Attempting ${modelId}`);
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
+        console.log(`[CHAT] Trying Groq model: ${model}`);
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${groqKey}`
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: context }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 2000, thinkingConfig: { thinkingBudget: 0 } }
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message }
+            ],
+            temperature: 0.7,
+            max_tokens: 2000
           })
         });
 
         const data = await res.json();
+
         if (data.error) {
-          lastError = data.error;
-          console.error(`[CHAT] ${modelId} failed:`, data.error.message);
+          console.error(`[CHAT] ${model} error:`, data.error.message);
+          lastError = data.error.message;
           continue;
         }
 
-        const text = (data.candidates?.[0]?.content?.parts || [])
-          .filter((p: any) => p.text && !p.thought)
-          .map((p: any) => p.text)
-          .join('').trim();
+        const text = data.choices?.[0]?.message?.content?.trim();
         if (text) {
           return new Response(JSON.stringify({ reply: text }), {
             status: 200,
@@ -88,18 +90,19 @@ Deno.serve(async (req: Request) => {
           });
         }
       } catch (e) {
-        lastError = e;
+        lastError = e.message;
+        console.error(`[CHAT] ${model} exception:`, e);
       }
     }
 
     return new Response(JSON.stringify({ 
-      reply: "Désolé, je rencontre une difficulté technique avec l'IA. Veuillez vérifier votre connexion ou réessayez plus tard.",
-      error: lastError?.message || lastError
+      reply: "Désolé, je rencontre une difficulté technique temporaire. Veuillez réessayer dans un instant.",
+      error: lastError
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (e: any) {
+  } catch (e) {
     return new Response(JSON.stringify({ reply: "Erreur serveur.", details: e.message }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

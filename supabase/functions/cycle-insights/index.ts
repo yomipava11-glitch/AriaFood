@@ -1,3 +1,4 @@
+// @ts-nocheck — Supabase Edge Function (Deno runtime)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -13,24 +14,31 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { phase, cycleDay, cycleLength, periodDuration, symptoms, profile } = body;
 
-    // @ts-ignore
-    const apiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || "AIzaSyAGxqXBd9vn34rmymvFo9SCtIU7-2UEmg0";
+    const groqKey = Deno.env.get("GROQ_API_KEY");
 
-    let context = `Tu es Aria, une assistante IA spécialisée en santé féminine et nutrition hormonale pour l'application AriaCycle. Tu réponds TOUJOURS en français.\n\n=== DONNÉES DU CYCLE ===\nJour du cycle: J${cycleDay}\nPhase actuelle: ${phase}\nDurée du cycle: ${cycleLength} jours\nDurée des règles: ${periodDuration} jours\n`;
+    if (!groqKey) {
+      return new Response(JSON.stringify({ insight: "⚠️ Clé API Groq manquante." }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    let systemPrompt = `Tu es Aria, une assistante IA spécialisée en santé féminine et nutrition hormonale pour l'application AriaCycle. Tu réponds TOUJOURS en français.`;
+
+    let userPrompt = `=== DONNÉES DU CYCLE ===\nJour du cycle: J${cycleDay}\nPhase actuelle: ${phase}\nDurée du cycle: ${cycleLength} jours\nDurée des règles: ${periodDuration} jours\n`;
 
     if (symptoms && symptoms.length > 0) {
-      context += `Symptômes signalés aujourd'hui: ${symptoms.join(', ')}\n`;
+      userPrompt += `Symptômes signalés aujourd'hui: ${symptoms.join(', ')}\n`;
     }
 
     if (profile) {
-      if (profile.age) context += `Âge: ${profile.age} ans\n`;
-      if (profile.weight_kg) context += `Poids: ${profile.weight_kg} kg\n`;
-      if (profile.goal_type) context += `Objectif: ${profile.goal_type}\n`;
-      if (profile.medical_conditions) context += `Conditions: ${profile.medical_conditions}\n`;
-      if (profile.allergies) context += `Allergies: ${profile.allergies}\n`;
+      if (profile.age) userPrompt += `Âge: ${profile.age} ans\n`;
+      if (profile.weight_kg) userPrompt += `Poids: ${profile.weight_kg} kg\n`;
+      if (profile.goal_type) userPrompt += `Objectif: ${profile.goal_type}\n`;
+      if (profile.medical_conditions) userPrompt += `Conditions: ${profile.medical_conditions}\n`;
+      if (profile.allergies) userPrompt += `Allergies: ${profile.allergies}\n`;
     }
 
-    context += `\nTu dois STRICTEMENT renvoyer un objet JSON valide avec cette structure exacte :
+    userPrompt += `\nTu dois STRICTEMENT renvoyer un objet JSON valide avec cette structure exacte :
 {
   "insight": "Ton conseil personnalisé en maximum 4 phrases. Termine bien tes phrases.",
   "supplements": [
@@ -42,79 +50,61 @@ Deno.serve(async (req: Request) => {
 }
 S'il n'y a pas de symptômes particuliers, renvoie un tableau vide pour supplements. NE RENVOIE AUCUN TEXTE EN DEHORS DU JSON.`;
 
-    const candidates = ["gemini-2.5-flash", "gemini-flash-latest"];
-    let lastError: any = null;
+    const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+    let lastError = null;
 
-    for (const modelId of candidates) {
+    for (const model of models) {
       try {
-        console.log(`[INSIGHTS] Attempting ${modelId}`);
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
+        console.log(`[INSIGHTS] Trying Groq model: ${model}`);
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${groqKey}`
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: context }] }],
-            generationConfig: { 
-              temperature: 0.7, 
-              maxOutputTokens: 2000,
-              thinkingConfig: { thinkingBudget: 0 },
-              responseMimeType: "application/json"
-            }
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+            response_format: { type: "json_object" }
           })
         });
 
         const data = await res.json();
-        if (data.error) { 
-          lastError = data.error; 
-          console.error(`[INSIGHTS] ${modelId} failed:`, data.error.message);
-          continue; 
-        }
-
-        const candidate = data.candidates?.[0];
-        const finishReason = candidate?.finishReason;
-        console.log(`[INSIGHTS] ${modelId} finishReason: ${finishReason}`);
-
-        // Reject if explicitly truncated
-        if (finishReason === 'MAX_TOKENS') {
-          console.warn(`[INSIGHTS] ${modelId} truncated (MAX_TOKENS), trying next model`);
-          lastError = { message: 'Truncated' };
+        if (data.error) {
+          lastError = data.error.message;
+          console.error(`[INSIGHTS] ${model} error:`, data.error.message);
           continue;
         }
 
-        // Collect all text parts (thinking models may have multiple parts)
-        const parts = candidate?.content?.parts || [];
-        const text = parts
-          .filter((p: any) => p.text && !p.thought)  // exclude thought/reasoning parts
-          .map((p: any) => p.text)
-          .join('').trim();
-
-        if (text && text.length > 20) {
-          console.log(`[INSIGHTS] ${modelId} success, text length: ${text.length}`);
-          try {
-            const parsed = JSON.parse(text);
-            return new Response(JSON.stringify(parsed), {
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-          } catch(e) {
-            return new Response(text, {
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-          }
-        } else {
-          console.warn(`[INSIGHTS] ${modelId} returned empty or too-short text`);
-          lastError = { message: 'Empty response' };
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text && text.length > 10) {
+          const parsed = JSON.parse(text);
+          return new Response(JSON.stringify(parsed), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
-      } catch (e) { lastError = e; }
+      } catch (e) {
+        lastError = e.message;
+        console.error(`[INSIGHTS] ${model} exception:`, e);
+      }
     }
 
-    return new Response(JSON.stringify({ insight: "Désolé, Aria n'est pas disponible pour le moment. Réessayez plus tard.", error: "AI unavailable", details: lastError }), {
+    return new Response(JSON.stringify({ 
+      insight: "Désolé, Aria rencontre une difficulté technique temporaire. Réessayez dans un instant.",
+      supplements: [],
+      error: lastError
+    }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
-  } catch (e: any) {
-    return new Response(JSON.stringify({ insight: null, error: e.message }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ insight: null, supplements: [], error: e.message }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

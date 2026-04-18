@@ -101,7 +101,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Sport & Female Health */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 ${userProfile?.gender === 'female' ? 'sm:grid-cols-2' : ''} gap-4`}>
                 <NavLink to="/workout" className="block bg-gradient-to-br from-emerald-500 to-teal-400 rounded-3xl p-5 shadow-lg shadow-emerald-500/20 text-white group active:scale-[0.98] transition-all">
                     <div className="flex items-center justify-between">
                         <div>
@@ -114,18 +114,59 @@ const Dashboard: React.FC = () => {
                     </div>
                 </NavLink>
 
-                <NavLink to="/cycle" className="block bg-gradient-to-br from-rose-400 to-pink-500 rounded-3xl p-5 shadow-lg shadow-rose-500/20 text-white group active:scale-[0.98] transition-all">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-bold mb-0.5">Cycle</h3>
-                            <p className="text-sm text-rose-50 font-medium">Suivi hormonal</p>
+                {userProfile?.gender === 'female' && (
+                    <NavLink to="/cycle" className="block bg-gradient-to-br from-rose-400 to-pink-500 rounded-3xl p-5 shadow-lg shadow-rose-500/20 text-white group active:scale-[0.98] transition-all">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold mb-0.5">Cycle</h3>
+                                <p className="text-sm text-rose-50 font-medium">Suivi hormonal</p>
+                            </div>
+                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
+                                <span className="material-symbols-outlined text-3xl text-white">water_drop</span>
+                            </div>
                         </div>
-                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined text-3xl text-white">water_drop</span>
-                        </div>
-                    </div>
-                </NavLink>
+                    </NavLink>
+                )}
             </div>
+
+            {/* Weekly Advice (Sky & Clouds) */}
+            <NavLink to="/advice" className="block w-full active:scale-[0.98] transition-transform mb-6 group">
+                <div className="bg-gradient-to-b from-sky-400 to-sky-300 rounded-[24px] p-5 relative overflow-hidden flex items-center justify-between shadow-lg shadow-sky-500/30 w-full h-full border border-sky-200">
+                    
+                    {/* CSS Clouds Background Effect */}
+                    <div className="absolute inset-0 z-0 opacity-90 pointer-events-none">
+                        <style>{`
+                            @keyframes drift1 { 0% { transform: translateX(0px); } 50% { transform: translateX(20px); } 100% { transform: translateX(0px); } }
+                            @keyframes drift2 { 0% { transform: translateX(10px); } 50% { transform: translateX(-15px); } 100% { transform: translateX(10px); } }
+                            @keyframes drift3 { 0% { transform: translateX(-10px); } 50% { transform: translateX(25px); } 100% { transform: translateX(-10px); } }
+                        `}</style>
+                        {/* Nuage 1 */}
+                        <div className="absolute top-2 left-[5%] w-14 h-4 bg-white/80 rounded-full blur-[0.5px]" style={{ animation: 'drift1 15s ease-in-out infinite' }}>
+                            <div className="absolute -top-3 left-2 w-7 h-7 bg-white/80 rounded-full"></div>
+                            <div className="absolute -top-2 left-6 w-6 h-6 bg-white/80 rounded-full"></div>
+                        </div>
+                        {/* Nuage 2 */}
+                        <div className="absolute top-8 right-[15%] w-20 h-5 bg-white/90 rounded-full blur-[0.5px]" style={{ animation: 'drift2 20s ease-in-out infinite' }}>
+                           <div className="absolute -top-4 left-4 w-9 h-9 bg-white/90 rounded-full"></div>
+                           <div className="absolute -top-3 left-10 w-7 h-7 bg-white/90 rounded-full"></div>
+                        </div>
+                        {/* Nuage 3 (Partiellement caché bas gauche) */}
+                        <div className="absolute -bottom-2 left-[30%] w-24 h-6 bg-white/50 rounded-full blur-[1px]" style={{ animation: 'drift3 25s ease-in-out infinite' }}>
+                           <div className="absolute -top-5 left-4 w-10 h-10 bg-white/50 rounded-full"></div>
+                        </div>
+                         {/* Soleil rayonnant discret */}
+                         <div className="absolute -top-8 -right-4 w-24 h-24 bg-yellow-200/50 blur-2xl rounded-full"></div>
+                    </div>
+                    
+                    <div className="flex-1 text-left relative z-10 pt-1">
+                        <h3 className="text-[20px] font-black text-white drop-shadow-sm leading-tight mb-1">Conseil de la Semaine</h3>
+                        <p className="text-[13px] text-sky-50 font-medium">Découvrez votre analyse hebdo</p>
+                    </div>
+                    <div className="w-[50px] h-[50px] bg-white rounded-[16px] flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.1)] group-hover:scale-110 transition-transform flex-shrink-0 relative z-10 border-b-[3px] border-gray-100">
+                         <span className="material-symbols-outlined text-sky-500 text-2xl font-bold">arrow_forward</span>
+                    </div>
+                </div>
+            </NavLink>
 
             {/* Categories */}
             <section>
@@ -169,7 +210,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {foodLogs.slice(0, 8).map((log) => (
+                        {foodLogs.slice(0, 2).map((log) => (
                             <NavLink key={log.id} to="/meals" state={{ selectedMeal: log }}
                                 className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-[0.98] block group">
                                 <div className="w-full h-32 overflow-hidden relative">

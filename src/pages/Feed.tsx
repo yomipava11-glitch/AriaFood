@@ -122,51 +122,75 @@ const Feed: React.FC = () => {
 
     if (profileLoading || (loading && posts.length === 0)) {
         return (
-            <div className="flex flex-col items-center justify-center h-full">
-                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            <div className="flex flex-col items-center justify-center h-full min-h-[60vh]">
+                <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin"></div>
+                <p className="text-sm text-gray-400 mt-4 font-medium">Chargement du fil...</p>
             </div>
         );
     }
 
     return (
-        <div className="pb-10 bg-gray-50 min-h-full">
-            {/* Header Sticky */}
-            <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100 px-4 py-4 sm:px-6 flex items-center justify-between">
-                <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Communauté</h1>
-                <button 
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-white transform active:scale-90 transition-transform"
-                >
-                    <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-                </button>
+        <div className="pb-28 lg:pb-12 min-h-full" style={{ background: 'linear-gradient(180deg, #f0fdf4 0%, #f8fafc 30%)' }}>
+            {/* Premium Header */}
+            <div className="sticky top-0 z-30 backdrop-blur-2xl border-b border-white/60 px-5 py-4 sm:px-6"
+                 style={{ background: 'rgba(255,255,255,0.75)' }}>
+                <div className="flex items-center justify-between max-w-lg mx-auto">
+                    <div>
+                        <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Communauté</h1>
+                        <p className="text-[11px] text-emerald-600 font-semibold mt-0.5 tracking-wide">
+                            {posts.length > 0 ? `${posts.length} publication${posts.length > 1 ? 's' : ''}` : 'Partagez vos plats'}
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="group flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg transition-all active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)', boxShadow: '0 8px 24px rgba(16,185,129,0.3)' }}
+                    >
+                        <span className="material-symbols-outlined text-white text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add_a_photo</span>
+                        <span className="text-white text-sm font-bold hidden sm:inline">Publier</span>
+                    </button>
+                </div>
             </div>
 
             {/* Feed List */}
             <div className="p-4 sm:p-6 max-w-lg mx-auto">
                 {posts.length === 0 ? (
-                    <div className="text-center py-20">
-                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="material-symbols-outlined text-gray-300 text-4xl">no_photography</span>
+                    <div className="text-center py-16">
+                        {/* Empty State - Premium */}
+                        <div className="w-28 h-28 mx-auto mb-6 rounded-[32px] flex items-center justify-center relative"
+                             style={{ background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' }}>
+                            <span className="material-symbols-outlined text-emerald-400 text-5xl" 
+                                  style={{ fontVariationSettings: "'FILL' 1" }}>restaurant</span>
+                            <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-100">
+                                <span className="material-symbols-outlined text-emerald-500 text-lg" 
+                                      style={{ fontVariationSettings: "'FILL' 1" }}>photo_camera</span>
+                            </div>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">Aucune publication</h3>
-                        <p className="text-sm text-gray-500 mb-6">Soyez le premier à partager votre plat avec la communauté !</p>
+                        <h3 className="text-xl font-extrabold text-gray-900 mb-2">Le fil est vide</h3>
+                        <p className="text-sm text-gray-500 mb-8 max-w-xs mx-auto leading-relaxed">
+                            Soyez le premier à partager un plat délicieux avec la communauté AriaFood !
+                        </p>
                         <button 
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="bg-primary text-white font-bold py-3 px-6 rounded-2xl shadow-lg active:scale-95 transition-transform"
+                            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl text-white font-bold text-sm shadow-xl active:scale-95 transition-transform"
+                            style={{ background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)', boxShadow: '0 8px 30px rgba(16,185,129,0.35)' }}
                         >
-                            Publier un plat
+                            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add_a_photo</span>
+                            Partager mon premier plat
                         </button>
                     </div>
                 ) : (
-                    posts.map(post => (
-                        <PostCard 
-                            key={post.id} 
-                            post={post} 
-                            onLikeToggle={handleLikeToggle} 
-                            onCommentClick={handleCommentClick} 
-                            onDeletePost={handleDeletePost}
-                        />
-                    ))
+                    <div className="space-y-1">
+                        {posts.map(post => (
+                            <PostCard 
+                                key={post.id} 
+                                post={post} 
+                                onLikeToggle={handleLikeToggle} 
+                                onCommentClick={handleCommentClick} 
+                                onDeletePost={handleDeletePost}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
 

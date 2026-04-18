@@ -1,3 +1,4 @@
+// @ts-nocheck — Supabase Edge Function (Deno runtime)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -13,53 +14,73 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { image } = body;
     
-    // @ts-ignore
-    const apiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || "AIzaSyAGxqXBd9vn34rmymvFo9SCtIU7-2UEmg0";
+    const groqKey = Deno.env.get("GROQ_API_KEY");
 
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "API Key missing" }), { status: 200, headers: corsHeaders });
+    if (!groqKey) {
+      return new Response(JSON.stringify({ error: "Configuration Error: API Keys missing." }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     if (!image) {
-      return new Response(JSON.stringify({ error: "Missing image" }), { status: 200, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Missing image" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const base64Data = image.includes(",") ? image.split(",")[1] : image;
+    let mimeType = "image/jpeg";
+    let base64Data = image;
 
-    const models = [
-      "gemini-2.5-flash",
-      "gemini-flash-latest"
-    ];
+    if (image.includes(",")) {
+      const parts = image.split(",");
+      const match = parts[0].match(/:(.*?);/);
+      if (match) mimeType = match[1];
+      base64Data = parts[1];
+    }
 
+    const models = ["llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"];
     let lastError = null;
-    for (const modelId of models) {
+
+    for (const model of models) {
       try {
-        console.log(`[SCANNER] Attempting ${modelId}`);
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
+        console.log(`[SCANNER] Attempting ${model}...`);
+        
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+             "Authorization": `Bearer ${groqKey}`
+          },
           body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: `Analyze this food image. IMPORTANT: You MUST respond in FRENCH. Return JSON ONLY: { "food_name": "...", "calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0, "health_score": 0, "health_tips": "... (in French)" }` },
-                { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-              ]
-            }],
-            generationConfig: {
-              response_mime_type: "application/json"
-            }
+            model: model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: `Analyze this food image. IMPORTANT: You MUST respond in FRENCH. Return JSON ONLY: { "food_name": "...", "calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0, "health_score": 0, "health_tips": "... (in French)" }` },
+                  {
+                    type: "image_url",
+                    image_url: {
+                       url: `data:${mimeType};base64,${base64Data}`
+                    }
+                  }
+                ]
+              }
+            ],
+            temperature: 0.1,
+            max_tokens: 2000,
+            response_format: { type: "json_object" }
           })
         });
 
         const data = await res.json();
+        
         if (data.error) {
-          lastError = data.error;
-          console.error(`[SCANNER] ${modelId} failed:`, data.error.message);
+          lastError = data.error.message;
+          console.error(`[SCANNER] ${model} failed:`, data.error.message);
           continue;
         }
 
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = data.choices?.[0]?.message?.content?.trim();
+
         if (text) {
           return new Response(text, { 
             status: 200, 
@@ -67,13 +88,17 @@ Deno.serve(async (req: Request) => {
           });
         }
       } catch (e) {
-        lastError = e;
+        lastError = e.message;
       }
     }
 
-    return new Response(JSON.stringify({ error: "ALL_MODELS_FAILED", details: lastError?.message || lastError }), { 
+    return new Response(JSON.stringify({ 
+      error: "ALL_MODELS_FAILED", 
+      message: "Désolé, Aria rencontre une difficulté technique temporaire. Réessayez dans un instant.",
+      details: lastError?.message || lastError 
+    }), { 
       status: 200, 
-      headers: corsHeaders 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
 
   } catch (e: any) {

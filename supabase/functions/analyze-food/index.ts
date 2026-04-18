@@ -1,3 +1,5 @@
+// @ts-nocheck — Supabase Edge Function (Deno runtime)
+/// <reference lib="deno.ns" />
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -32,7 +34,6 @@ Deno.serve(async (req: Request) => {
       throw new Error("No image provided.");
     }
 
-    // Le format fourni par le frontend est généralement "data:image/jpeg;base64,/9j/4AAQ..."
     let mimeType = "image/jpeg";
     let base64Data = image;
 
@@ -43,16 +44,13 @@ Deno.serve(async (req: Request) => {
       base64Data = parts[1];
     }
 
-    // @ts-ignore
-    const geminiKey = Deno.env.get("GOOGLE_GENERATIVE_AI_API_KEY") || "AIzaSyAGxqXBd9vn34rmymvFo9SCtIU7-2UEmg0";
-    // @ts-ignore
-    const spoonacularKey = Deno.env.get("SPOONACULAR_API_KEY") || "991aedc684eb48c8b7d44b3c8a8a1229";
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    const spoonacularKey = Deno.env.get("SPOONACULAR_API_KEY");
 
-    if (!geminiKey) {
-      throw new Error("API Key Gemini manquante. Veuillez la configurer dans Supabase (.env).");
+    if (!groqKey) {
+      throw new Error("Clé API Groq manquante.");
     }
 
-    // 1. Appel à Gemini 1.5 Flash Vision
     const prompt = `Tu es Aria, une assistante en nutrition ultra pointue pour l'application AriaFood, pensée pour tous, y compris le continent africain.
 Analyse cette image de nourriture. 
 - Identifie s'il s'agit d'un plat préparé, d'un aliment culturel spécifique (comme l'Okok, le Ndolé, Poulet DG...) ou d'un ingrédient brut (ex: Un morceau de bœuf, un oignon, une tomate).
@@ -61,71 +59,69 @@ Analyse cette image de nourriture.
 Tu dois répondre UNIQUEMENT en JSON avec la structure exacte suivante :
 {
   "food_name": "Nom du plat ou ingrédient (ex: Okok fait maison, Oignon rouge)",
-  "calories": 0, // estimation entière
+  "calories": 0,
   "protein_g": 0,
   "carbs_g": 0,
   "fat_g": 0,
   "fiber_g": 0,
-  "health_score": 0, // Sur 10
+  "health_score": 0,
   "health_tips": "Bref conseil santé franc et bienveillant de 2 phrases.",
-  "is_ingredient": false, // true si c'est un aliment brut (ex: courgette, oignon), false si plat cuisiné
-  "ingredient_english": "onion" // Obligatoire si is_ingredient est TRUE (nom de l'ingrédient principal en ANGLAIS pour interroger 1 l'API de recette)
+  "is_ingredient": false,
+  "ingredient_english": "onion"
 }`;
 
-    const modelCandidates = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+    const models = ["llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"];
     let lastError: any = null;
 
-    for (const modelId of modelCandidates) {
+    for (const model of models) {
       try {
-        console.log(`[ANALYZE] Trying model: ${modelId}...`);
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${geminiKey}`;
-
-        const geminiBody = {
-          contents: [{
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 2000,
-            thinkingConfig: { thinkingBudget: 0 },
-            responseMimeType: "application/json"
-          }
-        };
-
-        const aiRes = await fetch(geminiUrl, {
+        console.log(`[ANALYZE] Trying model: ${model}`);
+        
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiBody)
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${groqKey}`
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${mimeType};base64,${base64Data}`
+                    }
+                  }
+                ]
+              }
+            ],
+            temperature: 0.1,
+            max_tokens: 2000,
+            response_format: { type: "json_object" }
+          })
         });
 
-        const aiData = await aiRes.json();
-        if (aiData.error) {
-          console.error(`[ANALYZE] ${modelId} error:`, aiData.error.message);
-          lastError = aiData.error.message;
+        const data = await res.json();
+        
+        if (data.error) {
+          console.error(`[ANALYZE] ${model} error:`, data.error.message);
+          lastError = data.error.message;
           continue;
         }
 
-        const parts = aiData.candidates?.[0]?.content?.parts || [];
-        const candidateText = parts
-          .filter((p: any) => p.text && !p.thought)
-          .map((p: any) => p.text)
-          .join('').trim();
+        const candidateText = data.choices?.[0]?.message?.content?.trim();
 
         if (!candidateText || candidateText.length < 10) {
-          console.warn(`[ANALYZE] ${modelId} returned empty/short text`);
+          console.warn(`[ANALYZE] ${model} returned empty/short text`);
           lastError = "Empty response";
           continue;
         }
 
-        console.log(`[ANALYZE] ${modelId} success, length: ${candidateText.length}`);
+        console.log(`[ANALYZE] ${model} success, length: ${candidateText.length}`);
 
         let parsedResult: AnalysisResponse;
         try {
@@ -163,11 +159,10 @@ Tu dois répondre UNIQUEMENT en JSON avec la structure exacte suivante :
 
       } catch (modelErr: any) {
         lastError = modelErr.message;
-        console.error(`[ANALYZE] ${modelId} exception:`, modelErr);
+        console.error(`[ANALYZE] ${model} exception:`, modelErr);
       }
     }
 
-    // Tous les modèles ont échoué
     throw new Error(lastError || "All AI models failed");
 
   } catch (e: any) {

@@ -141,7 +141,10 @@ export default function ChatAssistant() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Chat invoke error:', error);
+        throw new Error("Impossible de contacter l'assistant. Vérifiez votre connexion internet.");
+      }
       
       const replyContent = data?.reply || "Désolé, je n'ai pas pu générer de réponse. Réessayez dans quelques instants.";
       const assistantMsg: ChatMessage = { role: 'assistant', content: replyContent };
@@ -152,12 +155,9 @@ export default function ChatAssistant() {
     } catch (error: any) {
       console.error('Chat error:', error);
       
-      // Check if backend returned a specific error message
-      const errorText = error?.message || "Désolé, une erreur est survenue lors de la connexion au serveur. Veuillez réessayer.";
-      
       const errorMsg: ChatMessage = {
         role: 'assistant',
-        content: errorText
+        content: error?.message || "Désolé, une erreur est survenue. Vérifiez votre connexion et réessayez."
       };
       setMessages(prev => [...prev, errorMsg]);
       await saveMessage(userId, errorMsg);

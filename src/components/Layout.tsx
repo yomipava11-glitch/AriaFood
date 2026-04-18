@@ -4,7 +4,7 @@
  * Desktop (lg+): fixed left sidebar navigation
  */
 import { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { useData } from '../context/DataContext';
 
@@ -27,6 +27,8 @@ const FEMALE_NAV = [
 const Layout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { userProfile } = useData();
+    const location = useLocation();
+    const isChatPage = location.pathname === '/chat';
 
     const isFemale = userProfile?.gender === 'female';
     // Mettre l'icône Cycle au-dessus du Social sur Desktop s'il n'y a pas assez de place, 
@@ -101,15 +103,16 @@ const Layout = () => {
                     <Outlet />
                 </main>
 
-                {/* Floating Action Button pour Assistant visible globalement sur Mobile & Desktop si nécessaire, 
-                    mais particulièrement utile sur mobile avec la nav bottom */}
-                <div className="absolute right-4 lg:right-8 bottom-28 lg:bottom-10 z-50">
+                {/* Floating Action Button pour Assistant — masqué sur /chat et sur Desktop (sidebar a déjà le lien) */}
+                {!isChatPage && (
+                  <div className="lg:hidden absolute right-4 bottom-28 z-50">
                     <NavLink to="/chat" className={({ isActive }) => 
-                        `flex items-center justify-center w-14 h-14 rounded-full shadow-[0_8px_30px_rgb(16,185,129,0.3)] transition-all transform hover:scale-110 active:scale-95 ${isActive ? 'bg-teal-600 scale-105' : 'bg-gradient-to-br from-emerald-400 to-teal-600'}`
+                        `flex items-center justify-center w-[68px] h-[68px] rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-gray-100 transition-all transform hover:scale-105 active:scale-95 ${isActive ? 'bg-gray-50 scale-105' : 'bg-white'}`
                     }>
-                        <img src="/logo.png" alt="Assistant" className="w-11 h-11 object-contain drop-shadow-md" />
+                        <img src="/logo.png" alt="Assistant" className="w-[50px] h-[50px] object-contain drop-shadow-sm" />
                     </NavLink>
-                </div>
+                  </div>
+                )}
 
                 {/* Mobile Bottom Nav (hidden on desktop) */}
                 <div className="lg:hidden w-full px-4 sm:px-6 pb-4 sm:pb-6 pt-2 flex-shrink-0 z-50 bg-gradient-to-t from-gray-50 via-gray-50/90 to-transparent absolute bottom-0 left-0">

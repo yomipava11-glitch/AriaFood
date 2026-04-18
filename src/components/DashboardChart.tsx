@@ -52,8 +52,8 @@ const DashboardChart: React.FC<DashboardChartProps> = ({ logs }) => {
         <h3 className="text-lg font-bold text-gray-800">Insights Nutritionnels</h3>
       </div>
       
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-64 min-h-[250px] min-w-[200px]">
+        <ResponsiveContainer width="99%" height="100%">
           <ComposedChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorCalories" x1="0" y1="0" x2="0" y2="1">
