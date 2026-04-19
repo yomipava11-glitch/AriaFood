@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { MOCK_ANALYSIS_V2 } from '../data/mockData';
+import { Capacitor } from '@capacitor/core';
+import { Camera } from '@capacitor/camera';
 
 const Scan: React.FC = () => {
     const navigate = useNavigate();
@@ -36,6 +38,9 @@ const Scan: React.FC = () => {
         const selectedMode = mode || facingMode;
 
         try {
+            if (Capacitor.isNativePlatform()) {
+                await Camera.requestPermissions();
+            }
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: { ideal: selectedMode }, width: { ideal: 1280 }, height: { ideal: 960 } },
                 audio: false

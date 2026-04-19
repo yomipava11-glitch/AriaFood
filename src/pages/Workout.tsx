@@ -27,14 +27,17 @@ const Workout: React.FC = () => {
             if (isRunning) {
                 if (Capacitor.isNativePlatform()) {
                     try {
-                        // Request permission and start pedometer
-                         await CapacitorPedometer.startMeasurementUpdates();
-                         // Listen for step updates
-                         CapacitorPedometer.addListener('measurement', (data) => {
-                             if (data.numberOfSteps) {
-                                 setSteps(prev => prev + 1); // Or use data.numberOfSteps if cumulative
-                             }
-                         });
+                        const perm = await CapacitorPedometer.requestPermissions();
+                        if (perm.activityRecognition === 'granted') {
+                             await CapacitorPedometer.startMeasurementUpdates();
+                             CapacitorPedometer.addListener('measurement', (data) => {
+                                 if (data.numberOfSteps) {
+                                     setSteps(prev => prev + 1); // Or use data.numberOfSteps depending on API
+                                 }
+                             });
+                        } else {
+                            console.error('Pedometer permission denied');
+                        }
                     } catch (e) {
                         console.error('Pedometer error:', e);
                     }
